@@ -27,6 +27,40 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 
+
+	const STATUS_INIT = 1;
+	const STATUS_SENT_TO_BANK = 2;
+	const STATUS_HOLD_OK = 3;
+	const STATUS_DMS_HOLD_FAILED = 4;
+	const STATUS_SMS_FAILED_SMS = 5;
+	const STATUS_DMS_CHARGE_FAILED = 6;
+	const STATUS_SUCCESS = 7;
+	const STATUS_EXPIRED = 8;
+	const STATUS_HOLD_EXPIRED = 9;
+	const STATUS_REFUND_FAILED = 11;
+	const STATUS_REFUND_PENDING = 12;
+	const STATUS_REFUND_SUCCESS = 13;
+	const STATUS_DMS_CANCEL_OK = 15;
+	const STATUS_DMS_CANCEL_FAILED = 16;
+	const STATUS_REVERSED = 17;
+	const STATUS_INPUT_VALIDATION_FAILED = 18;
+	const STATUS_BR_VALIDATION_FAILED = 19;
+	const STATUS_TERMINAL_GROUP_SELECT_FAILED = 20;
+	const STATUS_TERMINAL_SELECT_FAILED = 21;
+	const STATUS_DECLINED_BY_BR_ACTION = 23;
+	const STATUS_WAITING_CARD_FORM_FILL = 25;
+	const STATUS_MPI_URL_GENERATED = 26;
+	const STATUS_WAITING_MPI = 27;
+	const STATUS_MPI_FAILED = 28;
+	const STATUS_MPI_NOT_REACHABLE = 29;
+	const STATUS_INSIDE_FORM_URL_SENT = 30;
+	const STATUS_MPI_AUTH_FAILED = 31;
+	const STATUS_ACQUIRER_NOT_REACHABLE = 32;
+	const STATUS_REVERSAL_FAILED = 33;
+	const STATUS_CREDIT_FAILED = 34;
+	const STATUS_P2P_FAILED = 35;
+
+
 	const PAYMENT_METHODS = [
 			'Sms'          => 'Sms',
 			'Dms'          => 'Dms',
@@ -327,14 +361,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 
 		$this->log( "Info: Begin processing payment for order {$order_id} for the amount of {$order->get_total()}" );
 
-		//      todo: should we log that ?
-		//		echo $order . "\n";
-		//		echo $pan . "\n";
-		//		echo $card_exp . "\n";
-		//		echo $cvv . "\n";
-		//		echo $card_holder . "\n";
-		//		echo $currency . "\n";
-
 		try {
 
 			$endpoint_name = $this->payment_method;
@@ -346,6 +372,17 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
             }
 
 			$endpoint = $this->gateway->{'create' . $endpoint_name}();
+
+
+			/*
+			P2P
+            $order->order()->setRecipientName('TEST RECIPIENT');
+            $order->customer()->setBirthDate('01021900');
+			*/
+
+
+			$this->log( "EndPoint: " . $endpoint_name );
+
 
 			$endpoint->customer()
 			         ->setEmail( $order->get_billing_email() )
@@ -384,11 +421,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			         ->setCVV( $cvv )
 			         ->setCardHolderName( $card_holder );
 
-
             $json = $this->process_endpoint($endpoint);
 
 			$transaction_id = !empty($json['gw']['gateway-transaction-id']) ? $json['gw']['gateway-transaction-id'] : false;
-
 
 			if (! empty($json['gw']['redirect-url'])) {
 
@@ -432,16 +467,10 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 				];
 			}
 
-			echo "end \n";
-			var_dump($json);
-			exit;
-
 		} catch ( Exception $e ) {
 			$this->log( sprintf( __( 'Error: %s', 'woocommerce-transactpro' ), $e->getMessage() ) );
 
 			$order->update_status( 'failed', $e->getMessage() );
-
-			return;
 		}
 	}
 
@@ -459,45 +488,53 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 		if ( ! $order || ! $order->get_transaction_id() ) {
 			return false;
 		}
-
+        $status = false;
 		if ( 'transactpro' === $order->get_payment_method() ) {
 			try {
 				$this->log( "Info: Begin refund for order {$order_id} for the amount of {$amount}" );
 
 				$transaction_id = get_post_meta( $order_id, '_transaction_id', true );
+
 				if ( 'yes' === get_post_meta( $order->get_id(), '_transactpro_charge_captured', true ) ) {
 					if ( ! is_null( $amount ) ) {
-						$refund = $this->gateway->createRefund();
-						$refund->command()->setGatewayTransactionID( $transaction_id );
-						$endpoint = $refund->money()->setAmount( $amount );
 
-						$json = $this->process_endpoint($endpoint);
+						$operation = $this->gateway->createRefund();
+						$operation->command()->setGatewayTransactionID( (string) $transaction_id );
+						$operation->money()->setAmount( (int) $amount );
 
-                        if ( $json )  {
-                            //$refund_message = sprintf( __( 'Refunded %1$s - Refund ID: %2$s - Reason: %3$s', 'woocommerce-transactpro' ), wc_price( $result->refund->amount_money->amount / 100 ), $result->refund->id, $reason );
-	                        $refund_message = '';
+						$json = $this->process_endpoint( $operation );
 
-                            $order->add_order_note( $refund_message );
+						$transaction_status = $json['gw']['status-code'];
+						$status        = $this->getTransactionStatusName( $transaction_status );
 
-                            $this->log( 'Success: ' . html_entity_decode( strip_tags( $refund_message ) ) );
-
-                            return true;
-                        }
-					}
-				}
-
-
+						if ( WC_Transactpro_Payments::STATUS_REFUND_SUCCESS == $transaction_status ) {
+							$refund_message = sprintf( __( 'Refunded %1$s - Refund ID: %2$s - Reason: %3$s', 'woocommerce-transactpro' ), wc_price( $amount / 100 ), '-=id=-', $reason );
+							$order->add_order_note( $refund_message );
+							$order->update_status( 'refunded' );
+							return true;
+						}
+					} else {
+						$status = __( 'Refunded amount can\'t be null' );
+                    }
+				} else {
+					$status = __( 'Can\'t be refunded because not charged' );
+                }
 			} catch ( Exception $e ) {
-				$this->log( sprintf( __( 'Error: %s', 'woocommerce-transactpro' ), $e->getMessage() ) );
+				$status = sprintf( __( 'Error unable to capture charge: %s', 'woocommerce-transactpro' ), $e->getMessage() );
 
-				return false;
 			}
+			$order->add_order_note( $status );
 		}
+
+		return $status ? new WP_Error( 'woocommerce-transactpro', __( $status, 'woocommerce-transactpro' ) ) : false;
 	}
 
 	private function process_endpoint($endpoint) {
 		$request  = $this->gateway->generateRequest( $endpoint );
 		$response = $this->gateway->process( $request );
+
+		$this->log( 'TransactPro response: ' .  $response->getBody());
+
 
 		if ( 200 !== $response->getStatusCode() ) {
 			throw new Exception( $response->getBody(), $response->getStatusCode() );
@@ -510,10 +547,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			throw new Exception( 'JSON ' . json_last_error_msg(), $json_status );
 		}
 
-		$this->log( 'TransactPro response: ' .  json_encode($json));
 
 		if ( empty( $json ) || ( empty( $json['gw'] ) && empty( $json['error'] ) ) ) {
-			wc_add_notice( __( 'Error: Transactpro was unable to complete the transaction. Please try again later or use another means of payment.', 'woocommerce-transactpro' ), 'error' );
+			//wc_add_notice( __( 'Error: Transactpro was unable to complete the transaction. Please try again later or use another means of payment.', 'woocommerce-transactpro' ), 'error' );
 			throw new Exception( 'Unexpected payment gateway response.' );
 		}
 
@@ -524,7 +560,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			$error_html .= '<ul>';
 			$error_html .= '<li>' . $json['error']['code'] . ' : ' . $json['error']['message'] . '</li>';
 			$error_html .= '</ul>';
-			wc_add_notice( $error_html, 'error' );
+			//wc_add_notice( $error_html, 'error' );
 
 			throw new Exception( $json['error']['message'], $json['error']['code'] );
 		} else {
@@ -533,6 +569,50 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 
         return $json;
 	}
+
+	public function getTransactionStatusName( $transaction_status ) {
+		$status_names = [
+			self::STATUS_INIT                         => 'INIT',
+			self::STATUS_SENT_TO_BANK                 => 'SENT_TO_BANK',
+			self::STATUS_HOLD_OK                      => 'HOLD_OK',
+			self::STATUS_DMS_HOLD_FAILED              => 'DMS_HOLD_FAILED',
+			self::STATUS_SMS_FAILED_SMS               => 'SMS_FAILED_SMS',
+			self::STATUS_DMS_CHARGE_FAILED            => 'DMS_CHARGE_FAILED',
+			self::STATUS_SUCCESS                      => 'SUCCESS',
+			self::STATUS_EXPIRED                      => 'EXPIRED',
+			self::STATUS_HOLD_EXPIRED                 => 'HOLD_EXPIRED',
+			self::STATUS_REFUND_FAILED                => 'REFUND_FAILED',
+			self::STATUS_REFUND_PENDING               => 'REFUND_PENDING',
+			self::STATUS_REFUND_SUCCESS               => 'REFUND_SUCCESS',
+			self::STATUS_DMS_CANCEL_OK                => 'Reservation successfully canceled.',
+			self::STATUS_DMS_CANCEL_FAILED            => 'DMS_CANCEL_FAILED',
+			self::STATUS_REVERSED                     => 'REVERSED',
+			self::STATUS_INPUT_VALIDATION_FAILED      => 'INPUT_VALIDATION_FAILED',
+			self::STATUS_BR_VALIDATION_FAILED         => 'BR_VALIDATION_FAILED',
+			self::STATUS_TERMINAL_GROUP_SELECT_FAILED => 'TERMINAL_GROUP_SELECT_FAILED',
+			self::STATUS_TERMINAL_SELECT_FAILED       => 'TERMINAL_SELECT_FAILED',
+			self::STATUS_DECLINED_BY_BR_ACTION        => 'DECLINED_BY_BR_ACTION',
+			self::STATUS_WAITING_CARD_FORM_FILL       => 'WAITING_CARD_FORM_FILL',
+			self::STATUS_MPI_URL_GENERATED            => 'MPI_URL_GENERATED',
+			self::STATUS_WAITING_MPI                  => 'WAITING_MPI',
+			self::STATUS_MPI_FAILED                   => 'MPI_FAILED',
+			self::STATUS_MPI_NOT_REACHABLE            => 'MPI_NOT_REACHABLE',
+			self::STATUS_INSIDE_FORM_URL_SENT         => 'INSIDE_FORM_URL_SENT',
+			self::STATUS_MPI_AUTH_FAILED              => 'MPI_AUTH_FAILED',
+			self::STATUS_ACQUIRER_NOT_REACHABLE       => 'ACQUIRER_NOT_REACHABLE',
+			self::STATUS_REVERSAL_FAILED              => 'REVERSAL_FAILED',
+			self::STATUS_CREDIT_FAILED                => 'CREDIT_FAILED',
+			self::STATUS_P2P_FAILED                   => 'P2P_FAILED',
+		];
+
+		if ( array_key_exists( $transaction_status, $status_names ) ) {
+			return $status_names[ $transaction_status ];
+		} else {
+			return 'UNKNOWN';
+		}
+	}
+
+
 
 	/**
 	 * Logs

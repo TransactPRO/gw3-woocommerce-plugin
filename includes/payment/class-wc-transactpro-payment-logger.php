@@ -20,6 +20,6 @@ class WC_Transactpro_Payment_Logger {
 			self::$logger = new WC_Logger();
 		}
 
-		self::$logger->add( 'woocommerce-gateway-transactpro', $message );
+		self::$logger->log( 'info', $message );
 	}
 }
