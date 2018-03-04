@@ -27,7 +27,6 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 
-
 	const STATUS_INIT = 1;
 	const STATUS_SENT_TO_BANK = 2;
 	const STATUS_HOLD_OK = 3;
@@ -59,7 +58,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 	const STATUS_REVERSAL_FAILED = 33;
 	const STATUS_CREDIT_FAILED = 34;
 	const STATUS_P2P_FAILED = 35;
-
 
 	const PAYMENT_METHODS = [
 			'Sms'          => 'Sms',
@@ -333,8 +331,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			'payment_form_input_styles'   => esc_js( $this->get_input_styles() ),
 			// todo: is this will be helpful somehow ?
 			//'placeholder_card_postal_code' => __( 'Card Postal Code1', 'woocommerce-transactpro' ),
-            //'custom_form_trigger_element'  => apply_filters( 'woocommerce_transactpro_payment_form_trigger_element', esc_js( '' ) ),
-
+			//'custom_form_trigger_element'  => apply_filters( 'woocommerce_transactpro_payment_form_trigger_element', esc_js( '' ) ),
 		] );
 
 		wp_enqueue_script( 'woocommerce-transactpro' );
@@ -407,9 +404,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			         ->setDescription( apply_filters( 'woocommerce_transactpro_payment_order_note', 'WooCommerce: Order #' . (string) $order->get_order_number(), $order ) )
 			         ->setMerchantSideUrl( WC_HTTPS::force_https_url( home_url( '/' ) ) );
 
-			// $endpoint->system()->setUserIP( $order->get_customer_ip_address() );
+			 $endpoint->system()->setUserIP( $order->get_customer_ip_address() );
 			// TODO: Remove fake ip address
-			$endpoint->system()->setUserIP( '81.219.241.101' );
+			//$endpoint->system()->setUserIP( '81.219.241.101' );
 
 			$endpoint->money()
 			         ->setAmount( (int) WC_Transactpro_Utils::format_amount_to_transactpro( $order->get_total(), $currency ) )
@@ -421,7 +418,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			         ->setCVV( $cvv )
 			         ->setCardHolderName( $card_holder );
 
-            $json = $this->process_endpoint($endpoint);
+			$json = $this->process_endpoint($endpoint);
 
 			$transaction_id = !empty($json['gw']['gateway-transaction-id']) ? $json['gw']['gateway-transaction-id'] : false;
 
