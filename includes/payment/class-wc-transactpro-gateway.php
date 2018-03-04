@@ -293,6 +293,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
             return;
         }
 
+        // todo: add card and exp.date input helper
         //      $suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
         //      wp_register_script( 'woocommerce-transactpro', WC_TRANSACTPRO_PLUGIN_URL . '/assets/js/wc-transactpro-payments' . $suffix . '.js', [ 'jquery', 'transactpro' ], WC_TRANSACTPRO_VERSION, true );
 
@@ -346,13 +347,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
 
             $operation = $this->gateway->{'create' . $endpoint_name}();
 
-            /*
-                todo: investigate  why P2P fails
-                P2P
-                $order->order()->setRecipientName('TEST RECIPIENT');
-                $order->customer()->setBirthDate('01021900');
-            */
-
             WC_Transactpro_Utils::log( "EndPoint: " . $endpoint_name );
 
             $operation->customer()
@@ -391,6 +385,14 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
                 ->setCVV( $cvv )
                 ->setCardHolderName( $card_holder );
 
+
+            // todo: investigate  why P2P failing
+            if ( $this->payment_method == self::PAYMENT_METHODS['P2P'] ) {
+                $order->order()->setRecipientName($this->p2p_recipient_name);
+                $order->customer()->setBirthDate($this->p2p_recipient_birthdate);
+            }
+
+
             $json = WC_Transactpro_Utils::process_endpoint($this->gateway, $operation);
 
             $transaction_id = ! empty( $json['gw']['gateway-transaction-id'] ) ? $json['gw']['gateway-transaction-id'] : false;
@@ -415,12 +417,11 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
                 ];
             }
 
-            if ( $status_code = $json['gw']['status-code'] ) {
-                $status = WC_Transactpro_Utils::getTransactionStatus( $status_code );
+            $status_code = !empty($json['gw']['status-code']) ? $json['gw']['status-code'] : false;
+            $status = WC_Transactpro_Utils::getTransactionStatus( $status_code );
+            $result = 'error';
 
-                //$status_code = $json['gw']['status-code'];
-                //$status = strtoupper($json['gw']['status-text'])
-
+            if ( $status_code ) {
                 WC_Transactpro_Utils::log( "Transaction : " . $transaction_id . " Status : " . $status );
 
                 if (in_array($status_code, [ WC_Transactpro_Utils::STATUS_HOLD_OK, WC_Transactpro_Utils::STATUS_SUCCESS])) {
@@ -440,14 +441,15 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
                 }  else {
                     update_post_meta( $order_id, '_transactpro_charge_captured', 'no' );
                     $order->update_status( 'failed', __( $status, 'woocommerce-transactpro' ) );
-                    $result = 'error';
                 }
-
-                return [
-                    'result'   => $result,
-                    'redirect' => $this->get_return_url( $order ),
-                ];
+            } else {
+                WC_Transactpro_Utils::log( 'Can\'t process response. Unknown status' );
             }
+
+            return [
+                'result'   => $result,
+                'redirect' => $this->get_return_url( $order ),
+            ];
 
         } catch ( Exception $e ) {
             WC_Transactpro_Utils::log( sprintf( __( 'Error: %s', 'woocommerce-transactpro' ), $e->getMessage() ) );
@@ -461,6 +463,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
      *
      * @param  int   $order_id
      * @param  float $amount
+     * @param  string $reason
      *
      * @return bool
      */
