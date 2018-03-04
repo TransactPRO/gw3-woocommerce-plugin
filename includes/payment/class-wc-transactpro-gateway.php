@@ -25,8 +25,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * @property $callback_url       string
  *
  */
-class WC_Transactpro_Gateway extends WC_Payment_Gateway {
-
+class WC_Transactpro_Gateway extends WC_Payment_Gateway
+{
 	const STATUS_INIT = 1;
 	const STATUS_SENT_TO_BANK = 2;
 	const STATUS_HOLD_OK = 3;
@@ -370,16 +370,14 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 
 			$endpoint = $this->gateway->{'create' . $endpoint_name}();
 
-
 			/*
+			todo: investigate  why P2P fails
 			P2P
             $order->order()->setRecipientName('TEST RECIPIENT');
             $order->customer()->setBirthDate('01021900');
 			*/
 
-
 			$this->log( "EndPoint: " . $endpoint_name );
-
 
 			$endpoint->customer()
 			         ->setEmail( $order->get_billing_email() )
@@ -404,8 +402,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			         ->setDescription( apply_filters( 'woocommerce_transactpro_payment_order_note', 'WooCommerce: Order #' . (string) $order->get_order_number(), $order ) )
 			         ->setMerchantSideUrl( WC_HTTPS::force_https_url( home_url( '/' ) ) );
 
-			 $endpoint->system()->setUserIP( $order->get_customer_ip_address() );
-			// TODO: Remove fake ip address
+            $endpoint->system()->setUserIP( $order->get_customer_ip_address() );
+
+            // TODO: IF tested on localhost use external IP
 			//$endpoint->system()->setUserIP( '81.219.241.101' );
 
 			$endpoint->money()
@@ -422,17 +421,22 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 
 			$transaction_id = !empty($json['gw']['gateway-transaction-id']) ? $json['gw']['gateway-transaction-id'] : false;
 
+
+            update_post_meta( $order_id, '_transaction_id', $transaction_id );
+            update_post_meta( $order_id, '_transactpro_payment_method', $this->payment_method );
+
 			if (! empty($json['gw']['redirect-url'])) {
 
+                WC()->session->set( 'waiting_for_return_order_id', $order_id );
+
 				update_post_meta( $order_id, '_transactpro_charge_captured', 'no' );
-				update_post_meta( $order_id, '_transaction_id', $transaction_id );
-				update_post_meta( $order_id, '_transactpro_payment_method', $this->payment_method);
 				update_post_meta( $order_id, '_payment_response', json_encode($json));
 
 				// Mark as on-hold
-				$authorized_message = sprintf( __( 'Transactpro redirected to the gateway', 'woocommerce-transactpro' ), $transaction_id );
-				$order->update_status( 'on-hold', $authorized_message );
-				$this->log( "Success: $authorized_message" );
+				$status = sprintf( __( 'Transactpro redirected to the gateway', 'woocommerce-transactpro' ), $transaction_id );
+				$order->update_status( 'on-hold', $status );
+				$this->log( $status );
+
 
                 return [
                     'result'   => 'success',
@@ -441,10 +445,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway {
 			}
 
 			if (!empty($json['gw']['status-text'])) {
-
-				update_post_meta( $order_id, '_transaction_id', $transaction_id );
-				update_post_meta( $order_id, '_transactpro_payment_method', $this->payment_method );
-
                 if (strtoupper($json['gw']['status-text']) == 'HOLD OK') {
 	                update_post_meta( $order_id, '_transactpro_charge_captured', 'no' );
 	                $order->update_status( 'on-hold' );
