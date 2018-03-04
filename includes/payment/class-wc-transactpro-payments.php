@@ -255,9 +255,16 @@ class WC_Transactpro_Payments {
 
         if ($order_id = WC()->session->get( 'waiting_for_return_order_id')){
             WC()->session->set( 'waiting_for_return_order_id', null);
+
             $order = wc_get_order( $order_id );
             $order->add_order_note( __( 'User returned from gateway.', 'woocommerce-transactpro' ) );
-            $url = $this->get_return_url( $order );
+            $return_url = $order->get_checkout_order_received_url();
+
+            if ( is_ssl() || get_option( 'woocommerce_force_ssl_checkout' ) == 'yes' ) {
+                $return_url = str_replace( 'http:', 'https:', $return_url );
+            }
+
+            $url = apply_filters( 'woocommerce_get_return_url', $return_url, $order );
             wp_safe_redirect( $url );
         }
     }
