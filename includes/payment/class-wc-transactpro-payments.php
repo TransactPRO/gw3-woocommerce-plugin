@@ -251,7 +251,7 @@ class WC_Transactpro_Payments {
     }
 
     public function return_url_gateway() {
-        $this->log( "Server got request on Return URL. Request: \n " . $_REQUEST );
+        $this->log( "Server got request on Return URL. Request: \n " . var_export($_REQUEST, 1));
 
         if ($order_id = WC()->session->get( 'waiting_for_return_order_id')){
             WC()->session->set( 'waiting_for_return_order_id', null);
@@ -263,7 +263,7 @@ class WC_Transactpro_Payments {
     }
 
     public function callback_url_gateway() {
-        $this->log( "Server got request on Callback URL. Request: \n " . $_REQUEST );
+        $this->log( "Server got request on Callback URL. Request: \n " . var_export($_REQUEST, 1) );
 
         if ( isset( $_POST['json'] ) ) {
             $json = json_decode( html_entity_decode( $_POST['json'] ), true );
@@ -320,8 +320,9 @@ class WC_Transactpro_Payments {
 
                 $transaction_id = get_post_meta( $order->get_id(), '_transaction_id', true );
                 $payment_method = get_post_meta( $order->get_id(), '_transactpro_payment_method', true );
+                $is_charged     = get_post_meta( $order->get_id(), '_transactpro_charge_captured', true );
 
-                if ( $payment_method == WC_Transactpro_Gateway::PAYMENT_METHODS['Dms'] && 'no' === get_post_meta( $order->get_id(), '_transactpro_charge_captured', true ) ) {
+                if ( $payment_method == WC_Transactpro_Gateway::PAYMENT_METHODS['Dms'] && 'no' === $is_charged ) {
 
 
                     $currency = $order->get_currency();
@@ -335,7 +336,7 @@ class WC_Transactpro_Payments {
                     $this->log( "Payment Processed. Response from gateway : " . json_encode( $json ) );
 
                 } else {
-                    $this->log( "Payment not processed. Method : " . $payment_method . " Meta : " . get_post_meta( $order->get_id(), '_transactpro_charge_captured', true ) );
+                    $this->log( "Payment not processed. Method : " . $payment_method . " Is charged : " . $is_charged );
                 }
 
             } catch ( Exception $e ) {
