@@ -36,8 +36,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
         'Dms'    => 'Dms',
         'Credit' => 'Credit',
         'P2P'    => 'P2P',
-        //'RecurrentSms' => 'RecurrentSms',
-        //'RecurrentDms' => 'RecurrentDms',
     ];
 
     protected $gateway;
@@ -54,6 +52,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
             'default_credit_card_form',
             'products',
             'refunds',
+            'subscriptions'
         ];
 
         // Load the form fields
@@ -325,6 +324,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
     public function process_payment( $order_id, $retry = true ) {
 
         $order = wc_get_order( $order_id );
+
         $pan         = isset( $_POST[ $this->id . '-card-number' ] ) ? wc_clean( $_POST[ $this->id . '-card-number' ] ) : '';
         $card_exp    = isset( $_POST[ $this->id . '-card-expiry' ] ) ? wc_clean( $_POST[ $this->id . '-card-expiry' ] ) : '';
         $cvv         = isset( $_POST[ $this->id . '-card-cvv' ] )    ? wc_clean( $_POST[ $this->id . '-card-cvv' ] )    : '';
@@ -335,19 +335,24 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
         WC_Transactpro_Utils::log( "Info: Begin processing payment for order {$order_id} for the amount of {$order->get_total()}" );
 
         try {
-
             $endpoint_name = $this->payment_method;
-            // todo: process refund
-            if ( in_array( $this->payment_method, [ 'RecurrentSms', 'RecurrentDms' ] ) ) {
-                $endpoint_name = 'Init' . $endpoint_name;
-            }
-            if ( $this->payment_method == self::PAYMENT_METHODS['Dms'] ) {
-                $endpoint_name = 'DmsHold';
-            }
 
-            $operation = $this->gateway->{'create' . $endpoint_name}();
+            // todo: check recurrent - seems not supported
+
+            if (wcs_order_contains_subscription($order)) {
+                if ( !in_array( $this->payment_method, [ 'Sms', 'Dms' ] ) ) {
+                    throw new Exception( 'Selected payment method can\'t by used for subscriptions products - SMS and DMS allowed only' );
+                }
+                $endpoint_name = 'InitRecurrent' . $endpoint_name;
+            } else {
+                if ( $this->payment_method == self::PAYMENT_METHODS['Dms'] ) {
+                    $endpoint_name = 'DmsHold';
+                }
+            };
 
             WC_Transactpro_Utils::log( "EndPoint: " . $endpoint_name );
+
+            $operation = $this->gateway->{'create' . $endpoint_name}();
 
             $operation->customer()
                 ->setEmail( $order->get_billing_email() )
@@ -372,10 +377,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
                 ->setDescription( apply_filters( 'woocommerce_transactpro_payment_order_note', 'WooCommerce: Order #' . (string) $order->get_order_number(), $order ) )
                 ->setMerchantSideUrl( WC_HTTPS::force_https_url( home_url( '/' ) ) );
 
-            $operation->system()->setUserIP( $order->get_customer_ip_address() );
-
+            //$operation->system()->setUserIP( $order->get_customer_ip_address() );
             // TODO: IF tested on localhost use external IP
-            //$endpoint->system()->setUserIP( '81.219.241.101' );
+            $operation->system()->setUserIP( '89.64.11.94' );
 
             $operation->money()->setAmount( (int) WC_Transactpro_Utils::format_amount_to_transactpro( $order->get_total(), $currency ) )->setCurrency( $currency );
 
