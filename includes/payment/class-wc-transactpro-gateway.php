@@ -89,6 +89,8 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
 
         add_action( 'admin_notices', [ $this, 'admin_notices' ] );
         add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, [ $this, 'process_admin_options' ] );
+        add_action( 'woocommerce_order_status_refunded', [ $this, 'order_refunded' ] );
+
     }
 
     /**
@@ -416,7 +418,11 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
      */
     public function process_refund( $order_id, $amount = null, $reason = '' ) {
 
+        WC_Transactpro_Utils::log( "Info: Begin refund for order {$order_id} for the amount of {$amount}" );
+
         $order = wc_get_order( $order_id );
+
+        //wc_refund_payment()
 
         if ( ! $order || ! $order->get_transaction_id() ) {
             return false;
@@ -424,7 +430,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
         $status = false;
         if ( 'transactpro' === $order->get_payment_method() ) {
             try {
-                WC_Transactpro_Utils::log( "Info: Begin refund for order {$order_id} for the amount of {$amount}" );
 
                 $transaction_id = get_post_meta( $order_id, '_transaction_id', true );
                 $is_charged     = get_post_meta( $order->get_id(), '_transactpro_charge_captured', true );
@@ -444,8 +449,18 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
                         $status = WC_Transactpro_Utils::getTransactionStatus( $status_code );
 
                         if ( $status_code == WC_Transactpro_Utils::STATUS_REFUND_SUCCESS ) {
-                            $order->update_status( 'refunded', sprintf( __( 'Refunded %1$s - Reason: %2$s', 'woocommerce-transactpro' ), wc_price( $amount ), $reason ));
+
+                            // we do this trick with total because when we update status to refunded - WC try to fully refund order and do one more refund on difference in sums
+
+                            $total = $order->get_total();
+                            $order->set_total($order->get_total_refunded());
+
+                            $order->update_status( 'refunded', sprintf( __( 'Refunded %1$s - Reason: %2$s', 'woocommerce-transactpro' ), wc_price( $amount ), $reason ), true);
+
+                            $order->set_total($total);
+
                             return true;
+
                         }
                     } else {
                         $status = __( 'Refunded amount can\'t be null' );
