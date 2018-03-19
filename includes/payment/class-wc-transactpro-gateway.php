@@ -161,7 +161,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
                 'default'     => '',
             ],
             'secret_key'     => [
-                'title'       => __( 'Secret keys', 'woocommerce-transactpro' ),
+                'title'       => __( 'Secret key', 'woocommerce-transactpro' ),
                 'type'        => 'text',
                 'description' => __( 'Transactpro Secret key', 'woocommerce-transactpro' ),
                 'default'     => '',
@@ -329,7 +329,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
             $operation->system()->setUserIP( $order->get_customer_ip_address() );
 
             // TODO: IF tested on localhost use external IP
-            // $operation->system()->setUserIP( '89.64.11.94' );
+            $operation->system()->setUserIP( '89.64.11.94' );
 
             $operation->money()->setAmount( (int) WC_Transactpro_Utils::format_amount_to_transactpro( $order->get_total(), $currency ) )->setCurrency( $currency );
 
@@ -415,6 +415,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
      * @return bool
      */
     public function process_refund( $order_id, $amount = null, $reason = '' ) {
+
         $order = wc_get_order( $order_id );
 
         if ( ! $order || ! $order->get_transaction_id() ) {
@@ -433,7 +434,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
 
                         $operation = $this->gateway->createRefund();
                         $operation->command()->setGatewayTransactionID( (string) $transaction_id );
-                        $operation->money()->setAmount( (int) $amount );
+
+                        $currency = $order->get_currency();
+                        $operation->money()->setAmount( (int) WC_Transactpro_Utils::format_amount_to_transactpro( $amount, $currency ) );
 
                         $json = WC_Transactpro_Utils::process_endpoint($this->gateway, $operation);
 
@@ -441,7 +444,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
                         $status = WC_Transactpro_Utils::getTransactionStatus( $status_code );
 
                         if ( $status_code == WC_Transactpro_Utils::STATUS_REFUND_SUCCESS ) {
-                            $order->update_status( 'refunded', sprintf( __( 'Refunded %1$s - Reason: %2$s', 'woocommerce-transactpro' ), wc_price( $amount / 100 ), $reason ));
+                            $order->update_status( 'refunded', sprintf( __( 'Refunded %1$s - Reason: %2$s', 'woocommerce-transactpro' ), wc_price( $amount ), $reason ));
                             return true;
                         }
                     } else {

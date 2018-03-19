@@ -151,7 +151,6 @@ class WC_Transactpro_Utils {
             throw new Exception( 'JSON: ' . json_last_error_msg(), $json_status );
         }
 
-
         if ( empty( $json ) || ( empty( $json['gw'] ) && empty( $json['error'] ) ) ) {
             throw new Exception( 'Unexpected payment gateway response.' );
         }
@@ -166,7 +165,8 @@ class WC_Transactpro_Utils {
     }
 
     public static function log( $message ) {
-        WC_Transactpro_Payment_Logger::log( $message );
+        if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            WC_Transactpro_Payment_Logger::log( $message );
+        }
     }
-
 }

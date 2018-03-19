@@ -74,13 +74,13 @@ if ( ! class_exists( 'Woocommerce_Transactpro' ) ) :
 		}
 
 		public function bootstrap() {
-			add_action( 'admin_notices', array( $this, 'check_environment' ) );
 
 			$this->define_constants();
 			$this->includes();
 			$this->init();
 			$this->init_hooks();
 
+            add_action( 'admin_notices', array( $this, 'check_environment' ) );
 			do_action( 'wc_transactpro_loaded' );
 		}
 
@@ -120,13 +120,7 @@ if ( ! class_exists( 'Woocommerce_Transactpro' ) ) :
 		 */
 		public function is_allowed_currencies() {
 
-			// todo: check
-
-			if ( 'USD' !== get_woocommerce_currency() && 'EUR' !== get_woocommerce_currency() ) {
-				return false;
-			}
-
-			return true;
+			return WC_Transactpro_Utils::is_currency_supported();
 		}
 
 		/**
