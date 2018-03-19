@@ -348,7 +348,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
         try {
             $endpoint_name = $this->payment_method;
 
-            if (wcs_order_contains_subscription($order)) {
+            if ( function_exists( 'wcs_order_contains_subscription' ) && wcs_order_contains_subscription($order)) {
                 if ( !in_array( $this->payment_method, [ 'Sms', 'Dms' ] ) ) {
                     throw new Exception( 'Selected payment method can\'t by used for subscriptions products - SMS and DMS allowed only' );
                 }
