@@ -52,7 +52,17 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
             'default_credit_card_form',
             'products',
             'refunds',
-            'subscriptions'
+            'subscriptions',
+
+            'subscription_cancellation',
+            'subscription_reactivation',
+            'subscription_suspension',
+            'subscription_amount_changes',
+            'subscription_date_changes',
+//            'subscription_payment_method_change',
+//            'subscription_payment_method_change_customer',
+//            'subscription_payment_method_change_admin',
+            'multiple_subscriptions',
         ];
 
         // Load the form fields
@@ -320,6 +330,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
      * @param bool $retry
      *
      * @return array
+     * @throws \Exception
      */
     public function process_payment( $order_id, $retry = true ) {
 
@@ -336,8 +347,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
 
         try {
             $endpoint_name = $this->payment_method;
-
-            // todo: check recurrent - seems not supported
 
             if (wcs_order_contains_subscription($order)) {
                 if ( !in_array( $this->payment_method, [ 'Sms', 'Dms' ] ) ) {
@@ -377,9 +386,10 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
                 ->setDescription( apply_filters( 'woocommerce_transactpro_payment_order_note', 'WooCommerce: Order #' . (string) $order->get_order_number(), $order ) )
                 ->setMerchantSideUrl( WC_HTTPS::force_https_url( home_url( '/' ) ) );
 
-            //$operation->system()->setUserIP( $order->get_customer_ip_address() );
+            $operation->system()->setUserIP( $order->get_customer_ip_address() );
+
             // TODO: IF tested on localhost use external IP
-            $operation->system()->setUserIP( '89.64.11.94' );
+            //$operation->system()->setUserIP( '89.64.11.94' );
 
             $operation->money()->setAmount( (int) WC_Transactpro_Utils::format_amount_to_transactpro( $order->get_total(), $currency ) )->setCurrency( $currency );
 
@@ -457,8 +467,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
 
         } catch ( Exception $e ) {
             WC_Transactpro_Utils::log( sprintf( __( 'Error: %s', 'woocommerce-transactpro' ), $e->getMessage() ) );
-
             $order->update_status( 'failed', $e->getMessage() );
+
+            throw new Exception($e->getMessage());
         }
     }
 

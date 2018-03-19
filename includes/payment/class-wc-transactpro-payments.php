@@ -20,11 +20,7 @@ class WC_Transactpro_Payments
         add_action( 'woocommerce_api_return_url_gateway', [ $this, 'return_url_gateway' ] );
         add_action( 'woocommerce_api_callback_url_gateway', [ $this, 'callback_url_gateway' ] );
 
-        // todo: should we fire events on status change ?
-        //add_action( 'woocommerce_order_status_on-hold_to_processing', array( $this, 'capture_payment' ) );
-        //add_action( 'woocommerce_order_status_on-hold_to_completed', array( $this, 'capture_payment' ) );
-        //add_action( 'woocommerce_order_status_on-hold_to_cancelled', [ $this, 'cancel_payment' ] );
-        //add_action( 'woocommerce_order_status_on-hold_to_refunded', [ $this, 'cancel_payment' ] );
+        // we can fire events on status change - example : 'woocommerce_order_status_on-hold_to_processing' ... to_completed, to_cancelled, to_refunded
 
         if ( is_admin() ) {
             add_filter( 'woocommerce_order_actions', [ $this, 'order_actions' ] );
@@ -53,6 +49,7 @@ class WC_Transactpro_Payments
             return;
         }
         include_once( dirname( __FILE__ ) . '/class-wc-transactpro-gateway.php' );
+        include_once( dirname( __FILE__ ) . '/class-wc-transactpro-gateway-subscriptions.php' );
 
         return true;
     }
@@ -63,7 +60,12 @@ class WC_Transactpro_Payments
      * @return array
      */
     public function register_gateway( $methods ) {
-        $methods[] = 'WC_Transactpro_Gateway';
+
+        if ( class_exists( 'WC_Subscriptions_Order' ) ) {
+            $methods[] = 'WC_Transactpro_Gateway_Subscriptions';
+        } else {
+            $methods[] = 'WC_Transactpro_Gateway';
+        }
 
         return $methods;
     }
@@ -117,11 +119,16 @@ class WC_Transactpro_Payments
 
                     $json = WC_Transactpro_Utils::process_endpoint( $this->gateway, $operation );
 
+                    // in this point we receive new transaction_id
+
+                    $transaction_id = ! empty( $json['gw']['gateway-transaction-id'] ) ? $json['gw']['gateway-transaction-id'] : false;
                     $status_code = $json['gw']['status-code'];
                     $status      = WC_Transactpro_Utils::getTransactionStatus( $status_code );
 
                     if ( $status_code == WC_Transactpro_Utils::STATUS_SUCCESS ) {
                         update_post_meta( $order->get_id(), '_transactpro_charge_captured', 'yes' );
+                        update_post_meta( $order->get_id(), '_transaction_id', $transaction_id );
+
                         wc_reduce_stock_levels( $order->get_id() );
 
                         $order->update_status( 'completed', __( 'Payment Processed.', 'woocommerce-transactpro' ) . ' ' . $status );
@@ -231,9 +238,15 @@ class WC_Transactpro_Payments
             if ( is_ssl() || get_option( 'woocommerce_force_ssl_checkout' ) == 'yes' ) {
                 $return_url = str_replace( 'http:', 'https:', $return_url );
             }
+
             WC()->session->set( 'waiting_for_return_order_id', null);
             $url = apply_filters( 'woocommerce_get_return_url', $return_url, $order );
-            // todo: we can get order status and show some info to user - in situation when something goes wrong it cat be helpful
+
+            /**
+             * todo: we can get order status and show some info to user - in situation when something goes wrong it cat be helpful
+             * but it's not clear what to do when return fired before callback
+             */
+
             wp_safe_redirect( $url );
         }
     }

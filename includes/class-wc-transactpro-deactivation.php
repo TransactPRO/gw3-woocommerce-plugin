@@ -19,7 +19,7 @@ class WC_Transactpro_Deactivation {
 	 * @return bool
 	 */
 	public static function deactivate() {
-		// todo: wtf ?
+
 		wp_clear_scheduled_hook( 'woocommerce_transactpro_inventory_poll' );
 
 		return true;

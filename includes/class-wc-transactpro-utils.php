@@ -51,7 +51,6 @@ class WC_Transactpro_Utils {
     const STATUS_CREDIT_FAILED = 34;
     const STATUS_P2P_FAILED = 35;
 
-
 	/**
 	 * Process amount to be passed to Transactpro.
 	 * @return float
@@ -130,13 +129,10 @@ class WC_Transactpro_Utils {
         }
     }
 
-
 	public static function is_currency_supported() {
 	    return in_array(get_woocommerce_currency(), ['USD', 'EUR']);
     }
 
-
-    
     public static function process_endpoint($gateway, $operation) {
 
         $request  = $gateway->generateRequest( $operation );
@@ -152,33 +148,22 @@ class WC_Transactpro_Utils {
         $json_status = json_last_error();
 
         if ( JSON_ERROR_NONE !== $json_status ) {
-            throw new Exception( 'JSON ' . json_last_error_msg(), $json_status );
+            throw new Exception( 'JSON: ' . json_last_error_msg(), $json_status );
         }
 
 
         if ( empty( $json ) || ( empty( $json['gw'] ) && empty( $json['error'] ) ) ) {
-            //wc_add_notice( __( 'Error: Transactpro was unable to complete the transaction. Please try again later or use another means of payment.', 'woocommerce-transactpro' ), 'error' );
             throw new Exception( 'Unexpected payment gateway response.' );
         }
 
         if ( ! empty( $json['error'] ) ) {
-            // format errors for display
-            $error_html = __( 'Payment Error: ', 'woocommerce-transactpro' );
-            $error_html .= '<br />';
-            $error_html .= '<ul>';
-            $error_html .= '<li>' . $json['error']['code'] . ' : ' . $json['error']['message'] . '</li>';
-            $error_html .= '</ul>';
-            //wc_add_notice( $error_html, 'error' );
-
-            throw new Exception( $json['error']['message'], $json['error']['code'] );
+            throw new Exception( 'ERROR: ' . $json['error']['message'], $json['error']['code'] );
         } else {
             unset( $json['error'] );
+        }
+
+        return $json;
     }
-
-    return $json;
-}
-
-    
 
     public static function log( $message ) {
         WC_Transactpro_Payment_Logger::log( $message );

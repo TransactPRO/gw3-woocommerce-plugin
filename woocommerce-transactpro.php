@@ -105,10 +105,7 @@ if ( ! class_exists( 'Woocommerce_Transactpro' ) ) :
 		 * @access public
 		 * @return bool
 		 */
-		// todo: remove
 		public function define_constants() {
-			//define( 'WC_TRANSACTPRO_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) );
-			//define( 'WC_TRANSACTPRO_PLUGIN_URL', untrailingslashit( plugins_url( basename( plugin_dir_path( __FILE__ ) ), basename( __FILE__ ) ) ) );
 
 			define( 'TRANSACTPRO_APPLICATION_ID', untrailingslashit( plugin_dir_path( __FILE__ ) ) );
 			return true;

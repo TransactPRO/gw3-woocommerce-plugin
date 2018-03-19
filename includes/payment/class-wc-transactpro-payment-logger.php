@@ -11,10 +11,11 @@ class WC_Transactpro_Payment_Logger {
 
 	public static $logger;
 
-	/**
-	 * Utilize WC logger class
-	 *
-	 */
+    /**
+     * Utilize WC logger class
+     *
+     * @param $message
+     */
 	public static function log( $message ) {
 		if ( empty( self::$logger ) ) {
 			self::$logger = new WC_Logger();
