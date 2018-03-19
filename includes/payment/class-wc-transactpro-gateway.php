@@ -29,7 +29,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  *
  */
 
-class WC_Transactpro_Gateway extends WC_Payment_Gateway
+class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
 {
     const PAYMENT_METHODS = [
         'Sms'    => 'Sms',
@@ -49,19 +49,14 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
         $this->icon               = null;
         $this->has_fields         = true;
         $this->supports           = [
-            'default_credit_card_form',
             'products',
             'refunds',
             'subscriptions',
-
             'subscription_cancellation',
             'subscription_reactivation',
             'subscription_suspension',
             'subscription_amount_changes',
             'subscription_date_changes',
-//            'subscription_payment_method_change',
-//            'subscription_payment_method_change_customer',
-//            'subscription_payment_method_change_admin',
             'multiple_subscriptions',
         ];
 
@@ -92,8 +87,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
             $this->gateway = $transactpro_client;
         }
 
-        // Hooks
-        add_action( 'wp_enqueue_scripts', [ $this, 'payment_scripts' ] );
         add_action( 'admin_notices', [ $this, 'admin_notices' ] );
         add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, [ $this, 'process_admin_options' ] );
     }
@@ -213,117 +206,62 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
         ] );
     }
 
-    /**
-     * Payment form on checkout page
-     */
-    public function payment_fields() {
-        // todo: add on-form validation and in case when transaction will be fired on gateway side just show link or button to go
+    public function form() {
+        wp_enqueue_script( 'wc-credit-card-form' );
+
+        $fields = array();
+
+        $default_fields = array(
+            'card-number-field' => '<p class="form-row form-row-wide">
+				<label for="' . esc_attr( $this->id ) . '-card-number">' . esc_html__( 'Card number', 'woocommerce' ) . ' <span class="required">*</span></label>
+				<input id="' . esc_attr( $this->id ) . '-card-number" class="input-text wc-credit-card-form-card-number" inputmode="numeric" autocomplete="cc-number" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" placeholder="&bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull;" ' . $this->field_name( 'card-number' ) . ' />
+			</p>',
+            'card-expiry-field' => '<p class="form-row form-row-first">
+				<label for="' . esc_attr( $this->id ) . '-card-expiry">' . esc_html__( 'Expiry (MM/YY)', 'woocommerce' ) . ' <span class="required">*</span></label>
+				<input id="' . esc_attr( $this->id ) . '-card-expiry" class="input-text wc-credit-card-form-card-expiry" inputmode="numeric" autocomplete="cc-exp" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" placeholder="' . esc_attr__( 'MM / YY', 'woocommerce' ) . '" ' . $this->field_name( 'card-expiry' ) . ' />
+			</p>',
+            'card-cvc-field' => '<p class="form-row form-row-last">
+			    <label for="' . esc_attr( $this->id ) . '-card-cvc">' . esc_html__( 'Card code', 'woocommerce' ) . ' <span class="required">*</span></label>
+			    <input id="' . esc_attr( $this->id ) . '-card-cvc" class="input-text wc-credit-card-form-card-cvc" inputmode="numeric" autocomplete="off" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" maxlength="4" placeholder="' . esc_attr__( 'CVC', 'woocommerce' ) . '" ' . $this->field_name( 'card-cvc' ) . ' style="width:100px" />
+		    </p>',
+            'card_holder_field' => '<p class="form-row form-row-wide">
+    			<label for="' . esc_attr( $this->id ) . '-card-holder">' . esc_html__( 'Card Holder', 'woocommerce' ) . ' <span class="required">*</span></label>
+	    		<input id="' . esc_attr( $this->id ) . '-card-holder" class="input-text wc-credit-card-form-card-holder" inputmode="text" autocomplete="off" autocorrect="no" autocapitalize="no" spellcheck="no"  maxlength="32" placeholder="' . esc_attr__( 'Card Holder', 'woocommerce' ) . '" ' . $this->field_name( 'card-holder' ) . ' " />
+		    </p>'
+        );
+
+        $fields = wp_parse_args( $fields, apply_filters( 'woocommerce_credit_card_form_fields', $default_fields, $this->id ) );
         ?>
-        <fieldset>
+
+        <fieldset id="wc-<?php echo esc_attr( $this->id ); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
+            <?php do_action( 'woocommerce_credit_card_form_start', $this->id ); ?>
             <?php
-            $allowed = [
-                'a'      => [
-                    'href'  => [],
-                    'title' => [],
-                ],
-                'br'     => [],
-                'em'     => [],
-                'strong' => [],
-                'span'   => [
-                    'class' => [],
-                ],
-            ];
-            if ( $this->description ) {
-                echo apply_filters( 'woocommerce_transactpro_description', wpautop( wp_kses( $this->description, $allowed ) ) );
+            foreach ( $fields as $field ) {
+                echo $field;
             }
-
-            if ( !empty($this->show_card_form) && $this->show_card_form == 'yes' ) :
             ?>
-            <p class="form-row form-row-wide">
-                <label for="sq-card-number"><?php esc_html_e( 'Card Number', 'woocommerce-transactpro' ); ?> <span class="required">*</span></label>
-                <input id="sq-card-number" type="text" maxlength="20" autocomplete="off" placeholder="•••• •••• •••• ••••" name="<?php echo esc_attr( $this->id ); ?>-card-number"/>
-            </p>
-
-            <p class="form-row form-row-first">
-                <label for="sq-expiration-date"><?php esc_html_e( 'Expiry (MM/YY)', 'woocommerce-transactpro' ); ?> <span class="required">*</span></label>
-                <input id="sq-expiration-date" type="text" autocomplete="off" placeholder="<?php esc_attr_e( 'MM / YY', 'woocommerce-transactpro' ); ?>" name="<?php echo esc_attr( $this->id ); ?>-card-expiry"/>
-            </p>
-
-            <p class="form-row form-row-last">
-                <label for="sq-cvv"><?php esc_html_e( 'Card Code', 'woocommerce-transactpro' ); ?> <span class="required">*</span></label>
-                <input id="sq-cvv" type="text" autocomplete="off" placeholder="<?php esc_attr_e( 'CVV', 'woocommerce-transactpro' ); ?>" name="<?php echo esc_attr( $this->id ); ?>-card-cvv"/>
-            </p>
-
-            <p class="form-row form-row-wide">
-                <label for="sq-card-holder"><?php esc_html_e( 'Card holder name', 'woocommerce-transactpro' ); ?> <span class="required">*</span></label>
-                <input id="sq-card-holder" type="text" autocomplete="off" placeholder="<?php esc_attr_e( 'Card holder name', 'woocommerce-transactpro' ); ?>" name="<?php echo esc_attr( $this->id ); ?>-card-holder"/>
-            </p>
-            <?php endif ?>
+            <?php do_action( 'woocommerce_credit_card_form_end', $this->id ); ?>
+            <div class="clear"></div>
         </fieldset>
         <?php
     }
 
     /**
-     * Get payment form input styles.
-     * This function is pass to the JS script in order to style the
-     * input fields within the iFrame.
+     * @param $txt
      *
-     * Possible styles are: mediaMinWidth, mediaMaxWidth, backgroundColor, boxShadow,
-     * color, fontFamily, fontSize, fontWeight, lineHeight and padding.
-     *
-     * @access  public
-     * @return json $styles
+     * @return string
      */
-    public function get_input_styles() {
-        $styles = [
-            [
-                'fontSize'        => '1.2em',
-                'padding'         => '.618em',
-                'fontWeight'      => 400,
-                'backgroundColor' => 'transparent',
-                'lineHeight'      => 1.7,
-            ],
-            [
-                'mediaMaxWidth' => '1200px',
-                'fontSize'      => '1em',
-            ],
-        ];
-
-        return apply_filters( 'woocommerce_transactpro_payment_input_styles', wp_json_encode( $styles ) );
-    }
-
-    /**
-     * payment_scripts function.
-     *
-     * @access public
-     */
-    public function payment_scripts() {
-        if ( ! is_checkout() ) {
-            return;
+    private function _escape_helper($txt) {
+        if (empty($txt)) {
+            $txt = 'N/A';
         }
 
-        // todo: add card and exp.date input helper
-        //      $suffix = defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ? '' : '.min';
-        //      wp_register_script( 'woocommerce-transactpro', WC_TRANSACTPRO_PLUGIN_URL . '/assets/js/wc-transactpro-payments' . $suffix . '.js', [ 'jquery', 'transactpro' ], WC_TRANSACTPRO_VERSION, true );
-
-        wp_localize_script( 'woocommerce-transactpro', 'transactpro_params', [
-            //'application_id'               => 'transactpro',
-            //'environment'                  => 'production', // todo: check environment var
-
-            'placeholder_card_number'     => __( '•••• •••• •••• ••••', 'woocommerce-transactpro' ),
-            'placeholder_card_expiration' => __( 'MM / YY', 'woocommerce-transactpro' ),
-            'placeholder_card_cvv'        => __( 'CVV', 'woocommerce-transactpro' ),
-            'payment_form_input_styles'   => esc_js( $this->get_input_styles() ),
-
-            // todo: is this will be helpful somehow ?
-            //'placeholder_card_postal_code' => __( 'Card Postal Code1', 'woocommerce-transactpro' ),
-            //'custom_form_trigger_element'  => apply_filters( 'woocommerce_transactpro_payment_form_trigger_element', esc_js( '' ) ),
-        ] );
-
-        wp_enqueue_script( 'woocommerce-transactpro' );
-        
-        return true;
+        if ( $this->payment_method == self::PAYMENT_METHODS['P2P'] ) {
+            return (string) preg_replace( '/\W/', ' ', $txt );
+        }
+        return (string) $txt;
     }
+
 
     /**
      * @param int  $order_id
@@ -336,9 +274,9 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
 
         $order = wc_get_order( $order_id );
 
-        $pan         = isset( $_POST[ $this->id . '-card-number' ] ) ? wc_clean( $_POST[ $this->id . '-card-number' ] ) : '';
-        $card_exp    = isset( $_POST[ $this->id . '-card-expiry' ] ) ? wc_clean( $_POST[ $this->id . '-card-expiry' ] ) : '';
-        $cvv         = isset( $_POST[ $this->id . '-card-cvv' ] )    ? wc_clean( $_POST[ $this->id . '-card-cvv' ] )    : '';
+        $pan         = preg_replace('/\s+/', '', (isset( $_POST[ $this->id . '-card-number' ] ) ? wc_clean( $_POST[ $this->id . '-card-number' ] ) : ''));
+        $card_exp    = preg_replace('/\s+/', '', (isset( $_POST[ $this->id . '-card-expiry' ] ) ? wc_clean( $_POST[ $this->id . '-card-expiry' ] ) : ''));
+        $cvv         = isset( $_POST[ $this->id . '-card-cvc' ] )    ? wc_clean( $_POST[ $this->id . '-card-cvc' ] )    : '';
         $card_holder = isset( $_POST[ $this->id . '-card-holder' ] ) ? wc_clean( $_POST[ $this->id . '-card-holder' ] ) : '';
 
         $currency = $order->get_currency();
@@ -366,30 +304,32 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
             $operation->customer()
                 ->setEmail( $order->get_billing_email() )
                 ->setPhone( $order->get_billing_phone() )
-                ->setBillingAddressCountry( $order->get_billing_country() )
-                ->setBillingAddressState( $order->get_billing_state() | 'N/A' )
-                ->setBillingAddressCity( $order->get_billing_city() | 'N/A' )
-                ->setBillingAddressStreet( $order->get_billing_address_1() | 'N/A' )
-                ->setBillingAddressHouse( $order->get_billing_address_2() | 'N/A' )
-                ->setBillingAddressFlat( ' ' )
-                ->setBillingAddressZIP( $order->get_billing_postcode() | 'N/A' )
-                ->setShippingAddressCountry( $order->get_shipping_country() | 'N/A' )
-                ->setShippingAddressState( $order->get_shipping_state() | 'N/A' )
-                ->setShippingAddressCity( $order->get_shipping_city() | 'N/A' )
-                ->setShippingAddressStreet( $order->get_shipping_address_1() | 'N/A' )
-                ->setShippingAddressHouse( $order->get_shipping_address_2() | 'N/A' )
+                ->setBirthDate($this->_escape_helper($this->p2p_recipient_birthdate))
+                ->setBillingAddressCountry($this->_escape_helper($order->get_billing_country()) )
+                ->setBillingAddressState($this->_escape_helper($order->get_billing_state()))
+                ->setBillingAddressCity($this->_escape_helper($order->get_billing_city()))
+                ->setBillingAddressStreet($this->_escape_helper($order->get_billing_address_1()))
+                ->setBillingAddressHouse($this->_escape_helper($order->get_billing_address_2()) )
+                ->setBillingAddressFlat($this->_escape_helper(' ') )
+                ->setBillingAddressZIP($this->_escape_helper($order->get_billing_postcode()) )
+                ->setShippingAddressCountry($this->_escape_helper($order->get_shipping_country()))
+                ->setShippingAddressState($this->_escape_helper($order->get_shipping_state()))
+                ->setShippingAddressCity($this->_escape_helper($order->get_shipping_city()))
+                ->setShippingAddressStreet($this->_escape_helper($order->get_shipping_address_1()))
+                ->setShippingAddressHouse($this->_escape_helper($order->get_shipping_address_2()))
                 ->setShippingAddressFlat( ' ' )
-                ->setShippingAddressZIP( $order->get_shipping_postcode() | 'N/A' );
+                ->setShippingAddressZIP($this->_escape_helper($order->get_shipping_postcode()));
 
 
             $operation->order()
                 ->setDescription( apply_filters( 'woocommerce_transactpro_payment_order_note', 'WooCommerce: Order #' . (string) $order->get_order_number(), $order ) )
-                ->setMerchantSideUrl( WC_HTTPS::force_https_url( home_url( '/' ) ) );
+                ->setMerchantSideUrl( WC_HTTPS::force_https_url( home_url( '/' ) ) )
+                ->setRecipientName($this->_escape_helper($this->p2p_recipient_name));
 
             $operation->system()->setUserIP( $order->get_customer_ip_address() );
 
             // TODO: IF tested on localhost use external IP
-            //$operation->system()->setUserIP( '89.64.11.94' );
+            // $operation->system()->setUserIP( '89.64.11.94' );
 
             $operation->money()->setAmount( (int) WC_Transactpro_Utils::format_amount_to_transactpro( $order->get_total(), $currency ) )->setCurrency( $currency );
 
@@ -398,14 +338,6 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway
                 ->setExpire( $card_exp )
                 ->setCVV( $cvv )
                 ->setCardHolderName( $card_holder );
-
-
-            // todo: investigate  why P2P failing
-            if ( $this->payment_method == self::PAYMENT_METHODS['P2P'] ) {
-                $order->order()->setRecipientName($this->p2p_recipient_name);
-                $order->customer()->setBirthDate($this->p2p_recipient_birthdate);
-            }
-
 
             $json = WC_Transactpro_Utils::process_endpoint($this->gateway, $operation);
 

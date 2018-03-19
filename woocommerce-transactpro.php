@@ -209,6 +209,8 @@ if ( ! class_exists( 'Woocommerce_Transactpro' ) ) :
 		public function load_plugin_textdomain() {
 			// todo : if needed we can add locales
 
+            DEFINE('PLUGIN_DIR', plugins_url(basename(plugin_dir_path(__FILE__)), basename(__FILE__)));
+
 			$locale = apply_filters( 'woocommerce_transactpro_plugin_locale', get_locale(), 'woocommerce-transactpro' );
 
 			load_textdomain( 'woocommerce-transactpro', trailingslashit( WP_LANG_DIR ) . 'woocommerce-transactpro/woocommerce-transactpro' . '-' . $locale . '.mo' );
