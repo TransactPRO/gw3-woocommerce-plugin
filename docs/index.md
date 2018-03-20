@@ -76,3 +76,43 @@ All changes will be displayed in right "Order notes" section .
 
 You can refund orders (after successful payment)
 ![](./images/008.png)
+
+##### Subscriptions
+
+- Create subscription product first 
+
+![](./images/009.png)
+
+- If cart contains subscription product recurrent payment will be automatically initiated   
+
+![](./images/010.png) 
+
+- Order will be processed as regular and payment will be charged according to the settings
+
+After that new subscription will appear (`WooCommerce > Subscriptions`): 
+
+![](./images/011.png) 
+
+- Payments will be processed according to schedule, or you can process them manually.
+   
+![](./images/012.png)
+
+- Please remember that even subscription DMS payments will generate hold transactions which admin should charge manually
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
