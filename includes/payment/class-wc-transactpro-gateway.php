@@ -91,6 +91,8 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
         add_action( 'woocommerce_update_options_payment_gateways_' . $this->id, [ $this, 'process_admin_options' ] );
         add_action( 'woocommerce_order_status_refunded', [ $this, 'order_refunded' ] );
 
+        // we do this trick with total because when we update status to refunded - WC try to fully refund order and do one more refund on difference in sums
+        remove_action( 'woocommerce_order_status_refunded', 'wc_order_fully_refunded' );
     }
 
     /**
@@ -449,16 +451,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
                         $status = WC_Transactpro_Utils::getTransactionStatus( $status_code );
 
                         if ( $status_code == WC_Transactpro_Utils::STATUS_REFUND_SUCCESS ) {
-
-                            // we do this trick with total because when we update status to refunded - WC try to fully refund order and do one more refund on difference in sums
-
-                            $total = $order->get_total();
-                            $order->set_total($order->get_total_refunded());
-
                             $order->update_status( 'refunded', sprintf( __( 'Refunded %1$s - Reason: %2$s', 'woocommerce-transactpro' ), wc_price( $amount ), $reason ), true);
-
-                            $order->set_total($total);
-
                             return true;
 
                         }

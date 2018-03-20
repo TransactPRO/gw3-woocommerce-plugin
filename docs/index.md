@@ -74,5 +74,5 @@ All changes will be displayed in right "Order notes" section .
 
 ##### Refund order
 
-You can refund orders with status `compleated` (after successful payment)
+You can refund orders (after successful payment)
 ![](./images/008.png)
