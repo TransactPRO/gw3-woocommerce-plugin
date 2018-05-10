@@ -118,7 +118,7 @@ class WC_Transactpro_Payments
                     $operation->money()->setAmount( (int) $amount );
 
                     $json = WC_Transactpro_Utils::process_endpoint( $this->gateway, $operation );
-
+                    WC_Transactpro_Utils::log(var_export($json,true) );
                     // in this point we receive new transaction_id
 
                     $transaction_id = ! empty( $json['gw']['gateway-transaction-id'] ) ? $json['gw']['gateway-transaction-id'] : false;
@@ -255,16 +255,16 @@ class WC_Transactpro_Payments
         WC_Transactpro_Utils::log( "Server got request on Callback URL. Request: \n " . var_export($_REQUEST, 1) );
 
         if ( isset( $_POST['json'] ) ) {
-
-            $json = json_decode( html_entity_decode( $_POST['json'] ), true );
+            $json_raw = html_entity_decode(str_replace("\\",'', $_POST['json']));
+            $json = json_decode( $json_raw, true );
+            
             $json_status = json_last_error();
 
             if ( JSON_ERROR_NONE == $json_status && isset( $json['result-data']['gw']['gateway-transaction-id'] ) && isset( $json['result-data']['gw']['status-code'] ) ) {
 
                 $transaction_id = $json['result-data']['gw']['gateway-transaction-id'];
-                $status_code    = $json['gw']['status-code'];
+                $status_code    = $json['result-data']['gw']['status-code'];
                 $status         = WC_Transactpro_Utils::getTransactionStatus( $status_code );
-
                 $orders = wc_get_orders( [ 'transaction_id' => $transaction_id ] );
 
                 if (!empty($orders) && count($orders) == 1) {

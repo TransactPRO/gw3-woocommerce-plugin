@@ -1,6 +1,6 @@
 <?php
 /* TransactPro AIM Payment Gateway Class */
-
+setlocale(LC_ALL, 'en_US.UTF-8');
 if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly
 }
@@ -125,7 +125,8 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
      * Check if this gateway is enabled
      */
     public function is_available() {
-        $is_available = $this->enabled  == 'no' || !wc_checkout_is_https() || empty($this->gateway) || !WC_Transactpro_Utils::is_currency_supported() ? false : true;
+        //$is_available = $this->enabled  == 'no' || !wc_checkout_is_https() || empty($this->gateway) || !WC_Transactpro_Utils::is_currency_supported() ? false : true;
+        $is_available = $this->enabled  == 'no' || empty($this->gateway) || !WC_Transactpro_Utils::is_currency_supported() ? false : true;
         return apply_filters( 'woocommerce_transactpro_payment_gateway_is_available', $is_available );
     }
 
@@ -211,43 +212,45 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
     }
 
     public function form() {
-        wp_enqueue_script( 'wc-credit-card-form' );
+        if($this->show_card_form=='yes') {
+            wp_enqueue_script( 'wc-credit-card-form' );
 
-        $fields = array();
+            $fields = array();
 
-        $default_fields = array(
-            'card-number-field' => '<p class="form-row form-row-wide">
-				<label for="' . esc_attr( $this->id ) . '-card-number">' . esc_html__( 'Card number', 'woocommerce' ) . ' <span class="required">*</span></label>
-				<input id="' . esc_attr( $this->id ) . '-card-number" class="input-text wc-credit-card-form-card-number" inputmode="numeric" autocomplete="cc-number" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" placeholder="&bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull;" ' . $this->field_name( 'card-number' ) . ' />
-			</p>',
-            'card-expiry-field' => '<p class="form-row form-row-first">
-				<label for="' . esc_attr( $this->id ) . '-card-expiry">' . esc_html__( 'Expiry (MM/YY)', 'woocommerce' ) . ' <span class="required">*</span></label>
-				<input id="' . esc_attr( $this->id ) . '-card-expiry" class="input-text wc-credit-card-form-card-expiry" inputmode="numeric" autocomplete="cc-exp" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" placeholder="' . esc_attr__( 'MM / YY', 'woocommerce' ) . '" ' . $this->field_name( 'card-expiry' ) . ' />
-			</p>',
-            'card-cvc-field' => '<p class="form-row form-row-last">
-			    <label for="' . esc_attr( $this->id ) . '-card-cvc">' . esc_html__( 'Card code', 'woocommerce' ) . ' <span class="required">*</span></label>
-			    <input id="' . esc_attr( $this->id ) . '-card-cvc" class="input-text wc-credit-card-form-card-cvc" inputmode="numeric" autocomplete="off" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" maxlength="4" placeholder="' . esc_attr__( 'CVC', 'woocommerce' ) . '" ' . $this->field_name( 'card-cvc' ) . ' style="width:100px" />
-		    </p>',
-            'card_holder_field' => '<p class="form-row form-row-wide">
-    			<label for="' . esc_attr( $this->id ) . '-card-holder">' . esc_html__( 'Card Holder', 'woocommerce' ) . ' <span class="required">*</span></label>
-	    		<input id="' . esc_attr( $this->id ) . '-card-holder" class="input-text wc-credit-card-form-card-holder" inputmode="text" autocomplete="off" autocorrect="no" autocapitalize="no" spellcheck="no"  maxlength="32" placeholder="' . esc_attr__( 'Card Holder', 'woocommerce' ) . '" ' . $this->field_name( 'card-holder' ) . ' " />
-		    </p>'
-        );
+            $default_fields = array(
+                'card-number-field' => '<p class="form-row form-row-wide">
+                                    <label for="' . esc_attr( $this->id ) . '-card-number">' . esc_html__( 'Card number', 'woocommerce' ) . ' <span class="required">*</span></label>
+                                    <input id="' . esc_attr( $this->id ) . '-card-number" class="input-text wc-credit-card-form-card-number" inputmode="numeric" autocomplete="cc-number" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" placeholder="&bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull;" ' . $this->field_name( 'card-number' ) . ' />
+                            </p>',
+                'card-expiry-field' => '<p class="form-row form-row-first">
+                                    <label for="' . esc_attr( $this->id ) . '-card-expiry">' . esc_html__( 'Expiry (MM/YY)', 'woocommerce' ) . ' <span class="required">*</span></label>
+                                    <input id="' . esc_attr( $this->id ) . '-card-expiry" class="input-text wc-credit-card-form-card-expiry" inputmode="numeric" autocomplete="cc-exp" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" placeholder="' . esc_attr__( 'MM / YY', 'woocommerce' ) . '" ' . $this->field_name( 'card-expiry' ) . ' />
+                            </p>',
+                'card-cvc-field' => '<p class="form-row form-row-last">
+                                <label for="' . esc_attr( $this->id ) . '-card-cvc">' . esc_html__( 'Card code', 'woocommerce' ) . ' <span class="required">*</span></label>
+                                <input id="' . esc_attr( $this->id ) . '-card-cvc" class="input-text wc-credit-card-form-card-cvc" inputmode="numeric" autocomplete="off" autocorrect="no" autocapitalize="no" spellcheck="no" type="tel" maxlength="4" placeholder="' . esc_attr__( 'CVC', 'woocommerce' ) . '" ' . $this->field_name( 'card-cvc' ) . ' style="width:100px" />
+                        </p>',
+                'card_holder_field' => '<p class="form-row form-row-wide">
+                            <label for="' . esc_attr( $this->id ) . '-card-holder">' . esc_html__( 'Card Holder', 'woocommerce' ) . ' <span class="required">*</span></label>
+                            <input id="' . esc_attr( $this->id ) . '-card-holder" class="input-text wc-credit-card-form-card-holder" inputmode="text" autocomplete="off" autocorrect="no" autocapitalize="no" spellcheck="no"  maxlength="32" placeholder="' . esc_attr__( 'Card Holder', 'woocommerce' ) . '" ' . $this->field_name( 'card-holder' ) . ' " />
+                        </p>'
+            );
 
-        $fields = wp_parse_args( $fields, apply_filters( 'woocommerce_credit_card_form_fields', $default_fields, $this->id ) );
-        ?>
-
-        <fieldset id="wc-<?php echo esc_attr( $this->id ); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
-            <?php do_action( 'woocommerce_credit_card_form_start', $this->id ); ?>
-            <?php
-            foreach ( $fields as $field ) {
-                echo $field;
-            }
+            $fields = wp_parse_args( $fields, apply_filters( 'woocommerce_credit_card_form_fields', $default_fields, $this->id ) );
             ?>
-            <?php do_action( 'woocommerce_credit_card_form_end', $this->id ); ?>
-            <div class="clear"></div>
-        </fieldset>
-        <?php
+
+            <fieldset id="wc-<?php echo esc_attr( $this->id ); ?>-cc-form" class='wc-credit-card-form wc-payment-form'>
+                <?php do_action( 'woocommerce_credit_card_form_start', $this->id ); ?>
+                <?php
+                foreach ( $fields as $field ) {
+                    echo $field;
+                }
+                ?>
+                <?php do_action( 'woocommerce_credit_card_form_end', $this->id ); ?>
+                <div class="clear"></div>
+            </fieldset>
+            <?php
+        }
     }
 
     /**
@@ -256,12 +259,13 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
      * @return string
      */
     private function _escape_helper($txt) {
-        if (empty($txt)) {
-            $txt = 'N/A';
+        if (empty(trim($txt))) {
+            $txt = 'NA';
         }
 
         if ( $this->payment_method == self::PAYMENT_METHODS['P2P'] ) {
-            return (string) preg_replace( '/\W/', ' ', $txt );
+            return (string) preg_replace( '/\W/', ' ', iconv("UTF-8", "ASCII//TRANSLIT", $txt));
+            //return (string) preg_replace( '/\W/', ' ', $txt );
         }
         return (string) $txt;
     }
@@ -314,17 +318,15 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
                 ->setBillingAddressCity($this->_escape_helper($order->get_billing_city()))
                 ->setBillingAddressStreet($this->_escape_helper($order->get_billing_address_1()))
                 ->setBillingAddressHouse($this->_escape_helper($order->get_billing_address_2()) )
-                ->setBillingAddressFlat($this->_escape_helper(' ') )
+                ->setBillingAddressFlat($this->_escape_helper('') )
                 ->setBillingAddressZIP($this->_escape_helper($order->get_billing_postcode()) )
                 ->setShippingAddressCountry($this->_escape_helper($order->get_shipping_country()))
                 ->setShippingAddressState($this->_escape_helper($order->get_shipping_state()))
                 ->setShippingAddressCity($this->_escape_helper($order->get_shipping_city()))
                 ->setShippingAddressStreet($this->_escape_helper($order->get_shipping_address_1()))
                 ->setShippingAddressHouse($this->_escape_helper($order->get_shipping_address_2()))
-                ->setShippingAddressFlat( ' ' )
+                ->setShippingAddressFlat( $this->_escape_helper('') )
                 ->setShippingAddressZIP($this->_escape_helper($order->get_shipping_postcode()));
-
-
             $operation->order()
                 ->setDescription( apply_filters( 'woocommerce_transactpro_payment_order_note', 'WooCommerce: Order #' . (string) $order->get_order_number(), $order ) )
                 ->setMerchantSideUrl( WC_HTTPS::force_https_url( home_url( '/' ) ) )
@@ -332,8 +334,8 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
 
             $operation->system()->setUserIP( $order->get_customer_ip_address() );
 
-            // TODO: IF tested on localhost use external IP
-            $operation->system()->setUserIP( '89.64.11.94' );
+            // TODO: IF tested on localhost use that and comment ^
+            // $operation->system()->setUserIP( '109.254.67.165' );
 
             $operation->money()->setAmount( (int) WC_Transactpro_Utils::format_amount_to_transactpro( $order->get_total(), $currency ) )->setCurrency( $currency );
 
@@ -342,9 +344,8 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
                 ->setExpire( $card_exp )
                 ->setCVV( $cvv )
                 ->setCardHolderName( $card_holder );
-
             $json = WC_Transactpro_Utils::process_endpoint($this->gateway, $operation);
-
+            
             $transaction_id = ! empty( $json['gw']['gateway-transaction-id'] ) ? $json['gw']['gateway-transaction-id'] : false;
 
             update_post_meta( $order_id, '_transaction_id', $transaction_id );
@@ -405,7 +406,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
             WC_Transactpro_Utils::log( sprintf( __( 'Error: %s', 'woocommerce-transactpro' ), $e->getMessage() ) );
             $order->update_status( 'failed', $e->getMessage() );
 
-            throw new Exception($e->getMessage());
+            //throw new Exception($e->getMessage());
         }
     }
 
@@ -451,6 +452,7 @@ class WC_Transactpro_Gateway extends WC_Payment_Gateway_CC
                         $status = WC_Transactpro_Utils::getTransactionStatus( $status_code );
 
                         if ( $status_code == WC_Transactpro_Utils::STATUS_REFUND_SUCCESS ) {
+                            $order->add_order_note( ' refund transaction-id:' . $json['gw']['gateway-transaction-id'] );
                             $order->update_status( 'refunded', sprintf( __( 'Refunded %1$s - Reason: %2$s', 'woocommerce-transactpro' ), wc_price( $amount ), $reason ), true);
                             return true;
 

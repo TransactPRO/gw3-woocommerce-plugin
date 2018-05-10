@@ -129,15 +129,15 @@ class WC_Transactpro_Utils {
         }
     }
 
-	public static function is_currency_supported() {
-	    return in_array(get_woocommerce_currency(), ['USD', 'EUR']);
+    public static function is_currency_supported() {
+        return true;
+	//return in_array(get_woocommerce_currency(), ['USD', 'EUR']);
     }
 
     public static function process_endpoint($gateway, $operation) {
 
         $request  = $gateway->generateRequest( $operation );
         $response = $gateway->process( $request );
-
         self::log( 'TransactPro response: ' . $response->getBody() );
 
         if ( 200 !== $response->getStatusCode() ) {
