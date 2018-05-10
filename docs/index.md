@@ -31,12 +31,18 @@
 - `Return URL`: - You can not change that, this information is needed for Transact Pro support team to properly configure your account
 - `Callback URL`: - You can not change that, this information is needed for Transact Pro support team to properly configure your account
 - `P2P Recipient Name`: - Specify your full name (First Name Last Name)
-- `P2P Recipient BirthDate`: - Specify your birth date (dd.mm.yyyy)
+- `P2P Recipient BirthDate`: - Specify your birth date (ddmmyyyy)
+
+
+-  Configure Shipping options  (`WooCommerce > Settings > Shipping > Shipping options`) 
+
+![](./images/013.png)
+
+ Shipping destination need to be selected as Force shipping to the customer billing address
 
 ### Global settings
 
-The Transact Pro gateway currently operates with Euro only! Please, configure your WooCommerce instance to operate Euro by default (`WooCommerce > Settings > General`): 
-
+Make sure that currency in Woocommerce Plugin corresponds to yours Transact Pro gateway account operation currency. Please, configure your WooCommerce instance to operate with supported currency (`WooCommerce > Settings > General`): 
 
 ### Subscriptions
 
